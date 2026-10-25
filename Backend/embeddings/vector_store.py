@@ -39,27 +39,8 @@ client = chromadb.PersistentClient(
 
 print("Connected Successfully!")
 
-# =====================================================
-# DELETE OLD COLLECTION (if exists)
-# =====================================================
-
-print("\nChecking for existing collection...")
-
-try:
-    client.delete_collection("ramayana_collection")
-    print("Old collection deleted.")
-except Exception:
-    print("No old collection found.")
-
-# =====================================================
-# CREATE NEW COLLECTION
-# =====================================================
-
-print("\nCreating new collection...")
-
-collection = client.create_collection(
-    name="ramayana_collection"
-)
+# Create the collection once; upsert below makes this script safe to rerun.
+collection = client.get_or_create_collection(name="ramayana_collection")
 
 print("Collection Created!")
 
@@ -80,24 +61,24 @@ print(f"Loaded {len(chunks)} chunks.")
 
 print("\nAdding embeddings to ChromaDB...")
 
-for i, chunk in enumerate(chunks, start=1):
-
-    collection.add(
-        ids=[chunk["id"]],
-        embeddings=[chunk["embedding"]],
-        documents=[chunk["text"]],
+batch_size = 500
+for offset in range(0, len(chunks), batch_size):
+    batch = chunks[offset:offset + batch_size]
+    collection.upsert(
+        ids=[str(chunk["id"]) for chunk in batch],
+        embeddings=[chunk["embedding"] for chunk in batch],
+        documents=[chunk["text"] for chunk in batch],
         metadatas=[
             {
-                "book": chunk["book"],
-                "canto": str(chunk["canto"]),
-                "page": chunk["page"],
-                "chunk": chunk["chunk"]
+                "book": chunk.get("book", ""),
+                "canto": str(chunk.get("canto", "")),
+                "page": chunk.get("page", 0),
+                "chunk": chunk.get("chunk", 0),
             }
-        ]
+            for chunk in batch
+        ],
     )
-
-    if i % 500 == 0:
-        print(f"Inserted {i}/{len(chunks)} chunks...")
+    print(f"Indexed {min(offset + batch_size, len(chunks))}/{len(chunks)} chunks...")
 
 print("\nAll embeddings added successfully!")
 print(f"Total Chunks Stored: {collection.count()}")

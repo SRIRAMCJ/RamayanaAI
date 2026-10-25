@@ -1,77 +1,45 @@
-const introVideo = document.getElementById("introVideo");
-const bookVideo = document.getElementById("bookVideo");
-
-const askBtn = document.getElementById("askBtn");
+const form = document.getElementById("chatForm");
 const questionInput = document.getElementById("questionInput");
-
-const loading = document.getElementById("loading");
+const languageSelect = document.getElementById("languageSelect");
+const askButton = document.getElementById("askBtn");
+const status = document.getElementById("status");
 const answerContainer = document.getElementById("answerContainer");
 const answer = document.getElementById("answer");
-const questionContainer = document.getElementById("questionContainer");
+const audio = document.getElementById("answerAudio");
 
-loading.style.display = "none";
-answerContainer.style.display = "none";
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const question = questionInput.value.trim();
+  if (!question) {
+    questionInput.focus();
+    return;
+  }
 
-askBtn.addEventListener("click", async function () {
+  askButton.disabled = true;
+  status.textContent = "Searching the Ramayana…";
+  answerContainer.hidden = true;
+  audio.hidden = true;
+  audio.pause();
 
-    const question = questionInput.value.trim();
+  try {
+    const response = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, language: languageSelect.value }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "The request failed.");
 
-    if (question === "") {
-        alert("Please enter a question.");
-        return;
+    answer.textContent = data.answer;
+    answerContainer.hidden = false;
+    if (data.audio?.url) {
+      audio.src = data.audio.url;
+      audio.hidden = false;
     }
-
-    questionContainer.style.display = "none";
-
-    introVideo.pause();
-    introVideo.style.display = "none";
-
-    bookVideo.style.display = "block";
-    bookVideo.currentTime = 0;
-    bookVideo.play();
-
-    loading.style.display = "flex";
-
-    try {
-
-        const response = await fetch("/chat", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                question: question,
-                language: "en"
-            })
-        });
-
-        const data = await response.json();
-
-        bookVideo.onended = function () {
-
-            loading.style.display = "none";
-            answerContainer.style.display = "block";
-            answer.innerHTML = "";
-
-            let i = 0;
-
-            function typeWriter() {
-                if (i < data.answer.length) {
-                    answer.innerHTML += data.answer.charAt(i);
-                    i++;
-                    setTimeout(typeWriter, 15);
-                }
-            }
-
-            typeWriter();
-
-            const audio = new Audio(data.audio.url);
-            audio.play();
-        };
-
-    } catch (err) {
-        console.error(err);
-        loading.innerHTML = "Something went wrong.";
-    }
-
+    status.textContent = "Answer ready.";
+  } catch (error) {
+    status.textContent = error.message || "Could not reach the assistant. Check that the server is running.";
+  } finally {
+    askButton.disabled = false;
+  }
 });

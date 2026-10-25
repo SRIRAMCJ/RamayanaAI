@@ -1,241 +1,106 @@
-"""
-=====================================================
-Ramayana AI API
-=====================================================
-"""
-import time
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+"""FastAPI application for the Ramayana AI assistant."""
+
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from rag.rag_pipeline import RAGPipeline
 from tts.tts_service import PiperTTS
 from translator.qwen_translator import QwenTranslator
 
 
-# =====================================================
-# FASTAPI APP
-# =====================================================
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+FRONTEND_DIR = BACKEND_DIR / "frontend"
+AUDIO_DIR = BACKEND_DIR / "audio"
+AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
     title="Ramayana AI",
     version="1.0.0",
-    description="Offline AI-powered Ramayana Assistant with RAG + Ollama + Piper TTS"
+    description="Ask questions about the Valmiki Ramayana in English or Hindi.",
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.mount("/audio", StaticFiles(directory=AUDIO_DIR), name="audio")
+app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+
+rag: RAGPipeline | None = None
+tts: PiperTTS | None = None
+translator: QwenTranslator | None = None
 
 
-# =====================================================
-# STATIC FILES
-# =====================================================
+@app.on_event("startup")
+def initialize_services() -> None:
+    """Load local services after the app starts so setup errors are actionable."""
+    global rag, tts, translator
+    rag = RAGPipeline()
+    tts = PiperTTS()
+    translator = QwenTranslator()
 
-# Generated Audio
-app.mount(
-    "/audio",
-    StaticFiles(directory="audio"),
-    name="audio"
-)
-
-# Frontend
-app.mount(
-    "/frontend",
-    StaticFiles(directory="frontend"),
-    name="frontend"
-)
-
-
-# =====================================================
-# INITIALIZE COMPONENTS
-# =====================================================
-
-print("\nInitializing Ramayana AI...\n")
-
-rag = RAGPipeline()
-tts = PiperTTS()
-translator = QwenTranslator()
-
-print("\nRamayana AI Ready!\n")
-
-
-# =====================================================
-# REQUEST MODEL
-# =====================================================
 
 class ChatRequest(BaseModel):
-    question: str
+    question: str = Field(min_length=1, max_length=2000)
     language: str = "en"
 
 
-# =====================================================
-# HOME PAGE
-# =====================================================
-
 @app.get("/")
 def home():
-    return FileResponse("frontend/index.html")
+    from fastapi.responses import FileResponse
+
+    return FileResponse(FRONTEND_DIR / "index.html")
 
 
-# =====================================================
-# CHAT API
-# =====================================================
+@app.get("/health")
+def health():
+    return {"status": "ok", "ready": rag is not None and tts is not None}
+
 
 @app.post("/chat")
 def chat(request: ChatRequest):
+    if rag is None or tts is None or translator is None:
+        raise HTTPException(status_code=503, detail="The assistant is still starting.")
+
+    question = request.question.strip()
+    if not question:
+        raise HTTPException(status_code=422, detail="Question cannot be empty.")
+
+    language = request.language.lower()
+    if language not in {"en", "hi"}:
+        raise HTTPException(status_code=422, detail="Language must be 'en' or 'hi'.")
 
     try:
-
-        print("\n" + "=" * 80)
-        print("Generating Answer...")
-        print("=" * 80)
-
-        question = request.question.strip()
-        language = (request.language or "en").lower()
-        start_time = time.time()
-        if not question:
-            return {
-                "success": False,
-                "error": "Question cannot be empty."
-                }
-
-        print(f"\nOriginal Question : {question}")
-        print(f"Language          : {language}")
-
-        # --------------------------------------------------
-        # Hindi -> English
-        # --------------------------------------------------
-
         if language == "hi":
+            question_for_rag = translator.hindi_to_english(question)
+        else:
+            question_for_rag = question
 
-            print("\nTranslating Hindi -> English...\n")
-
-            question = translator.hindi_to_english(question)
-
-            print(f"Translated Question : {question}")
-
-        # --------------------------------------------------
-        # Ask RAG
-        # --------------------------------------------------
-
-        print("\nSearching Knowledge Base...\n")
-
-        answer = rag.ask(
-            question=question,
-            language=language,
-            )
-
-        print("\nEnglish Answer:\n")
-        print(answer)
-
-        # =====================================================
-        # DETECT MAIN CHARACTER
-        # =====================================================
-
-        answer_lower = answer.lower()
-
-        character = "default"
-
-        characters = [
-            "rama",
-            "sita",
-            "hanuman",
-            "ravana",
-            "lakshmana",
-            "bharata",
-            "shatrughna",
-            "dasharatha",
-            "kaikeyi",
-            "janaka",
-            "vibhishana",
-            "kumbhakarna",
-            "indrajit",
-            "sugriva",
-            "vali",
-        ]
-
-        for name in characters:
-            if name in answer_lower:
-                character = name
-                break
-
-        print(f"\nDetected Character : {character}")
-
-        # --------------------------------------------------
-        # English -> Hindi
-        # --------------------------------------------------
-
+        answer = rag.ask(question=question_for_rag, language="en")
+        if answer.startswith("Error:"):
+            raise RuntimeError(answer.removeprefix("Error:").strip())
         if language == "hi":
-
-            print("\nTranslating English -> Hindi...\n")
-
             answer = translator.english_to_hindi(answer)
 
-            print("\nHindi Answer:\n")
-            print(answer)
-
-        # --------------------------------------------------
-        # Generate Speech
-        # --------------------------------------------------
-
-        print("\nGenerating Speech...\n")
-
-        audio_filename = tts.generate(
-            answer,
-            language
+        audio_filename = tts.generate(answer, language)
+        answer_lower = answer.lower()
+        characters = (
+            "rama", "sita", "hanuman", "ravana", "lakshmana", "bharata",
+            "shatrughna", "dasharatha", "kaikeyi", "janaka", "vibhishana",
+            "kumbhakarna", "indrajit", "sugriva", "vali",
         )
-
-        voice = (
-            "hi_IN-pratham-medium"
-            if language == "hi"
-            else "en_IN-medium"
-            )
-
-        print("\nDone.\n")
+        character = next((name for name in characters if name in answer_lower), "default")
 
         return {
-
             "success": True,
-
             "question": request.question,
-
             "language": language,
-
             "answer": answer,
-
             "character": character,
-
             "audio": {
-
                 "file": audio_filename,
-
                 "url": f"/audio/{audio_filename}",
-
-                "voice": voice
-
-            }
-
+                "voice": "hi_IN-pratham-medium" if language == "hi" else "en_IN-medium",
+            },
         }
-
-    except Exception as e:
-
-        print("\nERROR\n")
-        print(str(e))
-
-        return {
-
-            "success": False,
-
-            "error": str(e)
-
-        }
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Could not answer the question: {exc}") from exc

@@ -1,38 +1,37 @@
-# Local environments and dependencies
+# Python environments and generated files
 .venv/
 venv/
-**/node_modules/
-**/.next/
-**/dist/
-**/build/
-**/__pycache__/
-**/*.py[cod]
+__pycache__/
+*.py[cod]
 
-# Local secrets and machine settings
+# Secrets
 .env
 .env.*
 !.env.example
 
-# Runtime data and generated artifacts
-Logs/
-**/Logs/
+# Local vector database and generated speech
 Database/chroma_db/
-**/chroma_db/
 Backend/audio/
-**/*.sqlite
-**/*.sqlite3
-**/*.db
+Logs/
 
-# Nested repositories are managed separately
-**/.git/
+# Frontend dependencies and build output
+node_modules/
+**/node_modules/
+.next/
+dist/
+build/
 
-# GitHub blocks individual files larger than 100 MB
-**/book_flip.mp4
-
-# Nested checkout metadata
-Backend/ramayana-ui/.git/
-
-# Nested repositories retain their own history
+# Older nested UI checkouts and unused duplicate media
 /frontend/
 /Backend/ramayana-ui/
+/assets/
+/Backend/assets/
+/Backend/api/assets/
+/Backend/api/frontend/
+/Backend/frontend/assets/
 
+# Editor and OS files
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
