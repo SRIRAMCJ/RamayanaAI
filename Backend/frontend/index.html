@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Ramayana AI</title>
+
+    <link rel="stylesheet" href="http://127.0.0.1:8000/frontend/style.css">
+
+</head>
+
+<body>
+
+    <!-- INTRO VIDEO -->
+
+    <video id="introVideo"
+        autoplay
+        muted
+        playsinline>
+
+        <source src="http://127.0.0.1:8000/frontend/assets/intro.mp4" type="video/mp4">
+
+    </video>
+
+
+    <!-- BOOK VIDEO -->
+
+    <video id="bookVideo"
+        playsinline
+        style="display:none;">
+
+        <source src="http://127.0.0.1:8000/frontend/assets/book_flip.mp4" type="video/mp4">
+
+    </video>
+
+
+
+    <!-- QUESTION UI -->
+
+    <div id="questionContainer">
+
+        <h1>
+
+            ASK ANYTHING ABOUT RAMAYANA
+
+        </h1>
+
+        <input
+            id="questionInput"
+            type="text"
+            placeholder="Ask your question here..." />
+
+        <button id="askBtn">
+
+            Ask Question
+
+        </button>
+
+    </div>
+
+
+
+    <!-- LOADING -->
+
+    <div id="loading">
+
+        Searching the Ramayana...
+
+    </div>
+
+
+
+    <!-- ANSWER -->
+
+    <div id="answerContainer">
+
+        <h2>
+
+            Answer
+
+        </h2>
+
+        <div id="answer">
+
+        </div>
+
+    </div>
+
+    <script src="http://127.0.0.1:8000/frontend/script.js"></script>
+
+</body>
+
+</html>

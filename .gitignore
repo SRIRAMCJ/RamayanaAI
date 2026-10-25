@@ -1,0 +1,38 @@
+# Local environments and dependencies
+.venv/
+venv/
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
+**/__pycache__/
+**/*.py[cod]
+
+# Local secrets and machine settings
+.env
+.env.*
+!.env.example
+
+# Runtime data and generated artifacts
+Logs/
+**/Logs/
+Database/chroma_db/
+**/chroma_db/
+Backend/audio/
+**/*.sqlite
+**/*.sqlite3
+**/*.db
+
+# Nested repositories are managed separately
+**/.git/
+
+# GitHub blocks individual files larger than 100 MB
+**/book_flip.mp4
+
+# Nested checkout metadata
+Backend/ramayana-ui/.git/
+
+# Nested repositories retain their own history
+/frontend/
+/Backend/ramayana-ui/
+
